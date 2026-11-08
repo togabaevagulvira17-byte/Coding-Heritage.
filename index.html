@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Кодтық Мұра — Код + Сурет</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    color: #eee; min-height:100vh; padding:20px;
+  }
+  .container { max-width:1200px; margin:0 auto; }
+  header { text-align:center; padding:20px 0 30px; }
+  header h1 { font-size:2.2rem; background:linear-gradient(90deg,#e94560,#f5a623); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  header p { color:#9aa; margin-top:8px; }
+
+  .progress { display:flex; justify-content:center; gap:8px; margin:20px 0 30px; flex-wrap:wrap; }
+  .step { padding:8px 16px; border-radius:20px; background:#222a3a; color:#667; font-size:.85rem; border:2px solid transparent; transition:.3s; }
+  .step.active { background:#e94560; color:#fff; border-color:#f5a623; box-shadow:0 0 20px rgba(233,69,96,.5); }
+  .step.done { background:#2ecc71; color:#fff; }
+
+  .panel { background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1); border-radius:16px; padding:28px; margin-bottom:20px; backdrop-filter:blur(10px); }
+  .panel h2 { color:#f5a623; margin-bottom:16px; font-size:1.4rem; }
+  .panel p.hint { color:#9aa; font-size:.9rem; margin-bottom:16px; line-height:1.6; }
+
+  /* Кесте стильдері */
+  .criteria-table { width:100%; border-collapse:collapse; margin:16px 0; font-size:.85rem; color:#cde; background:#131a28; border-radius:10px; overflow:hidden; }
+  .criteria-table th, .criteria-table td { padding:12px; text-align:left; border-bottom:1px solid #2a3a52; }
+  .criteria-table th { background:#1e2638; color:#f5a623; font-weight:600; }
+  .criteria-table tr:last-child td { border-bottom:none; }
+  .badge-pct { background:rgba(233,69,96,.2); color:#e94560; padding:3px 8px; border-radius:12px; font-weight:bold; font-size:.8rem; border:1px solid rgba(233,69,96,.4); }
+
+  /* Код торы */
+  .code-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(170px,1fr)); gap:12px; margin-top:16px; }
+  .code-card {
+    background:#1e2638; border:2px solid #2a3a52; border-radius:12px;
+    padding:10px; cursor:pointer; transition:.25s; font-size:.8rem;
+    overflow:hidden; position:relative;
+  }
+  .code-card:hover { border-color:#f5a623; transform:translateY(-4px); box-shadow:0 8px 20px rgba(245,166,35,.2); }
+  .code-card.selected { background:#e94560; border-color:#f5a623; box-shadow:0 0 15px rgba(233,69,96,.6); }
+  .code-card .thumb {
+    width:100%; height:80px; border-radius:8px; background:#131a28;
+    display:flex; align-items:center; justify-content:center;
+    overflow:hidden; margin-bottom:8px; position:relative;
+  }
+  .code-card .thumb svg { width:100%; height:100%; }
+  .code-card .thumb img { width:100%; height:100%; object-fit:cover; }
+  .code-card .code { font-weight:bold; color:#f5a623; font-size:.9rem; }
+  .code-card.selected .code { color:#fff; }
+  .code-card .name { color:#cde; margin-top:2px; font-size:.8rem; }
+  .code-card .desc { color:#889; font-size:.68rem; margin-top:2px; line-height:1.3; }
+  .code-card .view-icon {
+    position:absolute; top:6px; right:6px; background:rgba(0,0,0,.6);
+    border-radius:50%; width:24px; height:24px; display:flex; align-items:center;
+    justify-content:center; font-size:.75rem; opacity:0; transition:.2s;
+  }
+  .code-card:hover .view-icon { opacity:1; }
+
+  /* Таңдалған */
+  .selected-list { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; min-height:40px; padding:12px; background:#131a28; border-radius:10px; border:1px dashed #334; }
+  .chip { background:#e94560; color:#fff; padding:6px 12px; border-radius:16px; font-size:.8rem; display:flex; align-items:center; gap:6px; }
+  .chip button { background:none; border:none; color:#fff; cursor:pointer; font-size:1rem; }
+  .counter { font-size:.85rem; color:#9aa; margin-top:8px; }
+  .counter.ok { color:#2ecc71; }
+
+  .btn { padding:12px 24px; border:none; border-radius:10px; font-size:.95rem; font-weight:600; cursor:pointer; transition:.3s; margin-top:16px; }
+  .btn-primary { background:linear-gradient(90deg,#e94560,#f5a623); color:#fff; }
+  .btn-primary:hover { transform:translateY(-2px); box-shadow:0 8px 20px rgba(233,69,96,.4); }
+  .btn-primary:disabled { opacity:.4; cursor:not-allowed; transform:none; }
+  .btn-secondary { background:#2a3a52; color:#cde; margin-left:8px; }
+  .btn-secondary:hover { background:#3a4a62; }
+
+  /* МОДАЛЬДЫ ТЕРЕЗЕ */
+  .modal-overlay {
+    position:fixed; inset:0; background:rgba(0,0,0,.85); backdrop-filter:blur(6px);
+    display:flex; align-items:center; justify-content:center; z-index:1000;
+    opacity:0; pointer-events:none; transition:.3s; padding:20px;
+  }
+  .modal-overlay.show { opacity:1; pointer-events:auto; }
+  .modal {
+    background:linear-gradient(135deg,#1e2638,#16213e); border-radius:20px;
+    max-width:900px; width:100%; max-height:90vh; overflow-y:auto;
+    border:1px solid #2a3a52; box-shadow:0 30px 80px rgba(0,0,0,.8);
+    transform:scale(.9); transition:.3s; position:relative;
+  }
+  .modal-overlay.show .modal { transform:scale(1); }
+  .modal-close {
+    position:absolute; top:16px; right:16px; background:rgba(233,69,96,.9);
+    border:none; color:#fff; width:40px; height:40px; border-radius:50%;
+    font-size:1.3rem; cursor:pointer; z-index:10; transition:.2s;
+  }
+  .modal-close:hover { transform:rotate(90deg); background:#e94560; }
+  .modal-header { padding:24px 24px 16px; border-bottom:1px solid #2a3a52; }
+  .modal-header .code-badge {
+    display:inline-block; background:linear-gradient(90deg,#e94560,#f5a623);
+    color:#fff; padding:6px 16px; border-radius:20px; font-weight:bold;
+    font-size:.9rem; margin-bottom:10px;
+  }
+  .modal-header h3 { color:#fff; font-size:1.6rem; }
+  .modal-header p { color:#9aa; margin-top:6px; font-size:.9rem; }
+  .modal-body { padding:24px; }
+  .modal-visual {
+    width:100%; height:320px; border-radius:14px; overflow:hidden;
+    background:#131a28; display:flex; align-items:center; justify-content:center;
+    border:1px solid #2a3a52; margin-bottom:20px;
+  }
+  .modal-visual svg, .modal-visual img { width:100%; height:100%; object-fit:contain; }
+  .modal-section { margin-bottom:18px; }
+  .modal-section h4 { color:#f5a623; font-size:.95rem; margin-bottom:8px; text-transform:uppercase; letter-spacing:1px; }
+  .modal-section p { color:#cde; font-size:.9rem; line-height:1.6; }
+  .modal-section .example {
+    background:#131a28; border-left:3px solid #e94560; padding:12px 16px;
+    border-radius:8px; color:#9aa; font-size:.85rem; font-style:italic;
+  }
+  .modal-actions { display:flex; gap:12px; flex-wrap:wrap; margin-top:20px; }
+  .modal-actions .btn { margin-top:0; }
+
+  /* Жүктеу */
+  .upload-box { border:2px dashed #334; border-radius:12px; padding:30px; text-align:center; cursor:pointer; transition:.2s; }
+  .upload-box:hover { border-color:#f5a623; background:rgba(245,166,35,.05); }
+  .upload-box input { display:none; }
+  .preview { max-width:100%; max-height:300px; border-radius:10px; margin-top:16px; display:none; }
+
+  /* Промпт */
+  .prompt-builder { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:16px; }
+  @media(max-width:600px){ .prompt-builder { grid-template-columns:1fr; } }
+  .prompt-builder label { font-size:.8rem; color:#9aa; display:block; margin-bottom:4px; }
+  .prompt-builder input, .prompt-builder select { width:100%; padding:10px; border-radius:8px; border:1px solid #334; background:#131a28; color:#eee; font-size:.85rem; }
+  .prompt-output { background:#131a28; border:1px solid #334; border-radius:10px; padding:16px; margin-top:16px; font-family:monospace; font-size:.85rem; color:#2ecc71; line-height:1.6; min-height:60px; }
+
+  /* AI сурет аймағы */
+  .ai-image-area { margin-top:20px; text-align:center; }
+  .ai-image-container {
+    min-height:200px; border:2px dashed #334; border-radius:12px;
+    display:flex; align-items:center; justify-content:center;
+    padding:20px; margin-top:16px; background:#131a28;
+  }
+  .ai-image-container img { max-width:100%; max-height:400px; border-radius:10px; }
+  .ai-image-container .placeholder { color:#556; font-size:.9rem; }
+  .ai-loading { color:#f5a623; font-size:.9rem; }
+  .ai-loading::after { content:''; animation: dots 1.5s infinite; }
+  @keyframes dots { 0%{content:'';} 33%{content:'.';} 66%{content:'..';} 100%{content:'...';} }
+
+  /* Рефлексия */
+  .reflection-q { margin-bottom:18px; }
+  .reflection-q label { display:block; color:#cde; font-size:.9rem; margin-bottom:6px; }
+  .reflection-q textarea { width:100%; min-height:70px; padding:10px; border-radius:8px; border:1px solid #334; background:#131a28; color:#eee; font-size:.85rem; resize:vertical; }
+
+  .result { text-align:center; padding:30px 20px; }
+  .result .score { font-size:4rem; font-weight:bold; background:linear-gradient(90deg,#e94560,#f5a623); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  .result .level-title { font-size:1.5rem; font-weight:bold; color:#f5a623; margin:10px 0 6px; }
+  .result .msg { color:#cde; margin-top:8px; font-size:1rem; line-height:1.6; max-width:700px; margin-left:auto; margin-right:auto; }
+
+  .score-breakdown { text-align:left; background:#131a28; border:1px solid #2a3a52; border-radius:12px; padding:20px; margin:24px auto; max-width:700px; }
+  .score-breakdown h4 { color:#f5a623; margin-bottom:12px; font-size:1rem; border-bottom:1px solid #2a3a52; padding-bottom:6px; }
+  .breakdown-item { display:flex; justify-content:space-between; margin-bottom:8px; font-size:.88rem; color:#cde; }
+  .breakdown-item span.pts { font-weight:bold; color:#2ecc71; }
+
+  .hidden { display:none !important; }
+  .toast { position:fixed; bottom:24px; right:24px; background:#2ecc71; color:#fff; padding:14px 24px; border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,.4); transform:translateY(120%); transition:.4s; z-index:999; }
+  .toast.show { transform:translateY(0); }
+
+  @media(max-width:700px){ .modal-visual { height:220px; } }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1>🎨 КОДТЫҚ МҰРА</h1>
+    <p>Өнер тарихы бойынша цифрлық ойын · Код + Сурет</p>
+  </header>
+
+  <div class="progress" id="progress">
+    <div class="step active" data-step="1">1. Кіріспе бағалау</div>
+    <div class="step" data-step="2">2. Кодтау</div>
+    <div class="step" data-step="3">3. Қолмен сурет</div>
+    <div class="step" data-step="4">4. ИИ-трансформация</div>
+    <div class="step" data-step="5">5. Рефлексия</div>
+  </div>
+
+  <!-- КЕЗЕҢ 1 -->
+  <section class="panel" id="stage-1">
+    <h2>1-кезең. Кіріспе және Бағалау критерийлері</h2>
+    <p class="hint">
+      Әр кодты басқанда — <strong>сол код бойынша сурет</strong> пен өнер тарихынан мысал шығады.
+      Кодтың мағынасын көріп, оны таңдап, өз шығармаңызды жасаңыз. Жоғары балл алу үшін төмендегі критерийлерді толық орындаңыз.
+    </p>
+
+    <!-- БАҒАЛАУ КРИТЕРИЙЛЕРІ КЕСТЕСІ -->
+    <div style="margin-bottom:24px;">
+      <h3 style="color:#f5a623;font-size:1.1rem;margin-bottom:10px;">📊 Тапсырманы бағалау критерийлері (4 кезең):</h3>
+      <table class="criteria-table">
+        <thead>
+          <tr>
+            <th>№</th>
+            <th>Бағалау критерийлері</th>
+            <th>Үлес (Балл)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1</td>
+            <td>Тақырыпқа сәйкес цифрлық кодтарды таңдап (кемінде 10 код), сол кодтар негізінде сурет жасау</td>
+            <td><span class="badge-pct">25% (25 балл)</span></td>
+          </tr>
+          <tr>
+            <td>2</td>
+            <td>Жасалған суреттің таңдалған кодтар мен нысандарға сәйкестігін қамтамасыз ету (Қолмен салынған сурет)</td>
+            <td><span class="badge-pct">30% (30 балл)</span></td>
+          </tr>
+          <tr>
+            <td>3</td>
+            <td>Өз суретін ЖИ (AI) көмегімен трансформациялап, алынған нәтижеге қатысты сауалдарға дұрыс жауап беру</td>
+            <td><span class="badge-pct">20% (20 балл)</span></td>
+          </tr>
+          <tr>
+            <td>4</td>
+            <td>Орындалған жұмысқа рефлексия жасап, сұрақтарға ЖИ көмегінсіз өз бетінше жауап беру</td>
+            <td><span class="badge-pct">25% (25 балл)</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- БАҒАЛАУ ДЕҢГЕЙЛЕРІ КЕСТЕСІ -->
+    <div style="margin-bottom:24px;">
+      <h3 style="color:#f5a623;font-size:1.1rem;margin-bottom:10px;">🏆 Жалпы бағалау деңгейлері:</h3>
+      <table class="criteria-table">
+        <thead>
+          <tr>
+            <th>Деңгей</th>
+            <th>Балл көрсеткіші</th>
+            <th>Нәтиженің сипаттамасы</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Өте жоғары деңгей</strong></td>
+            <td style="color:#2ecc71;font-weight:bold;">96–100 балл</td>
+            <td>Барлық тапсырманы толық әрі жоғары сапада орындайды. Цифрлық кодтарды дұрыс таңдайды, суретті талапқа сай жасайды, ЖИ көмегімен трансформация жасайды және рефлексияны өз бетінше сауатты жүргізеді.</td>
+          </tr>
+          <tr>
+            <td><strong>Жоғары деңгей</strong></td>
+            <td style="color:#2ecc71;">85–95 балл</td>
+            <td>Тапсырмаларды жақсы орындайды. Негізгі талаптарды сақтайды, бірақ кейбір кезеңдерде аздаған дәлсіздіктер болуы мүмкін.</td>
+          </tr>
+          <tr>
+            <td><strong>Орта деңгей</strong></td>
+            <td style="color:#f5a623;">75–84 балл</td>
+            <td>Тапсырмалардың басым бөлігін орындайды, алайда кодтарды таңдау, суреттің сәйкестігі немесе трансформация нәтижесін түсіндіру кезінде кейбір қателіктер жібереді.</td>
+          </tr>
+          <tr>
+            <td><strong>Төмен деңгей</strong></td>
+            <td style="color:#e67e22;">60–74 балл</td>
+            <td>Тапсырмаларды ішінара орындайды. Жұмыстың бірнеше кезеңінде қиындықтар байқалады, жауаптары толық емес.</td>
+          </tr>
+          <tr>
+            <td><strong>Өте төмен деңгей</strong></td>
+            <td style="color:#e94560;">50–59 балл</td>
+            <td>Тапсырмаларды орындау сапасы жеткіліксіз. Цифрлық кодтарды қолдану, сурет жасау және өз жұмысын талдау барысында елеулі қиындықтар кездеседі.</td>
+          </tr>
+          <tr>
+            <td><strong>Меңгеру деңгейі жеткіліксіз</strong></td>
+            <td style="color:#e94560;font-weight:bold;">0–49 балл</td>
+            <td>Тапсырмалардың негізгі талаптары орындалмаған немесе студент қажетті білім мен дағдыларды көрсете алмаған.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div>
+      <p class="hint" style="margin-top:0"><strong style="color:#f5a623">Қалай ойнау керек:</strong></p>
+      <ol style="color:#cde;font-size:.9rem;line-height:1.9;padding-left:20px;margin-bottom:16px">
+        <li>Әр код карточкасында <strong>миниатюра</strong> бар</li>
+        <li>Карточканы бас → <strong>үлкен сурет + түсініктеме</strong> ашылады</li>
+        <li>Кодты таңдау үшін модальда «Таңдау» батырмасын бас</li>
+        <li>Кемінде <strong>10 код</strong> таңда (25 балл)</li>
+        <li>Өз суретіңді салып жүкте (30 балл)</li>
+        <li>ЖИ арқылы трансформация жаса (20 балл)</li>
+        <li>Рефлексия сұрақтарына ЖИ-сыз өз бетінше жауап бер (25 балл)</li>
+      </ol>
+      <button class="btn btn-primary" onclick="goTo(2)">Ойынды бастау →</button>
+    </div>
+  </section>
+
+  <!-- КЕЗЕҢ 2 -->
+  <section class="panel hidden" id="stage-2">
+    <h2>2-кезең. Картинаны кодтау (Макс: 25 балл)</h2>
+    <p class="hint">
+      Код карточкасын бас → <strong>сол код бойынша сурет</strong> шығады.
+      Ішінде «Таңдау» батырмасы бар. <strong>Кемінде 10 код</strong> жинаңыз.
+    </p>
+    <div class="code-grid" id="codeGrid"></div>
+    <div class="selected-list" id="selectedList"></div>
+    <div class="counter" id="counter">Таңдалды: 0 / 10</div>
+    <button class="btn btn-primary" id="next2" disabled onclick="goTo(3)">Келесі кезең →</button>
+    <button class="btn btn-secondary" onclick="clearCodes()">Тазалау</button>
+  </section>
+
+  <!-- КЕЗЕҢ 3 -->
+  <section class="panel hidden" id="stage-3">
+    <h2>3-кезең. Қолмен жасалған шығарма (Макс: 30 балл)</h2>
+    <p class="hint">Таңдалған код негізінде қағазға немесе цифрлық форматта сурет салып, осында жүктеңіз. (Кодтар мен нысандарға сәйкестікті қамтамасыз ету).</p>
+    <label class="upload-box" for="fileInput">
+      <div style="font-size:2rem">📷</div>
+      <div style="color:#cde;margin-top:8px">Суретті жүктеу үшін басыңыз</div>
+      <input type="file" id="fileInput" accept="image/*">
+    </label>
+    <img class="preview" id="preview" alt="Сіздің суретіңіз">
+    <button class="btn btn-primary" id="next3" disabled onclick="goTo(4)">Келесі кезең →</button>
+  </section>
+
+  <!-- КЕЗЕҢ 4 -->
+  <section class="panel hidden" id="stage-4">
+    <h2>4-кезең. ИИ-трансформация (Макс: 20 балл)</h2>
+    <p class="hint">Таңдалған кодтар негізінде ИИ-промпт құрастырыңыз. Промптты көшіріп алып, ChatGPT (DALL-E) арқылы сурет жасау үшін сілтемеге өтіңіз.</p>
+    <div class="prompt-builder">
+      <div><label>Негізгі нысан</label><input type="text" id="pObj" placeholder="мысалы: жұмбақ әйел" oninput="buildPrompt()"></div>
+      <div><label>Стиль</label>
+        <select id="pStyle" onchange="buildPrompt()">
+          <option value="Renaissance painting">Қайта өрлеу</option>
+          <option value="Baroque painting">Барокко</option>
+          <option value="Rococo painting">Рококо</option>
+          <option value="Neoclassical painting">Неоклассицизм</option>
+          <option value="Romanticism painting">Романтизм</option>
+          <option value="Realism painting">Реализм</option>
+          <option value="Impressionist painting">Импрессионизм</option>
+          <option value="Post-Impressionist painting">Постимпрессионизм</option>
+          <option value="Expressionist painting">Экспрессионизм</option>
+          <option value="Cubist painting">Кубизм</option>
+          <option value="Surrealist painting">Сюрреализм</option>
+          <option value="Abstract painting">Абстракционизм</option>
+          <option value="Pop art">Поп-арт</option>
+          <option value="Minimalist art">Минимализм</option>
+          <option value="Digital art">Цифрлық өнер</option>
+          <option value="Concept art">Концепт-арт</option>
+          <option value="Anime style">Аниме стилі</option>
+          <option value="Pixel art">Пиксель өнер</option>
+          <option value="Steampunk style">Стимпанк</option>
+          <option value="Cyberpunk style">Киберпанк</option>
+          <option value="Fantasy illustration">Фэнтези иллюстрация</option>
+          <option value="Watercolor painting">Акварель</option>
+          <option value="Oil painting">Майлы бояу</option>
+          <option value="Ink wash painting">Тушь сурет</option>
+          <option value="Street art graffiti">Көше өнері</option>
+        </select>
+      </div>
+      <div><label>Түстер</label>
+        <select id="pFx" onchange="buildPrompt()">
+          <option value="bright light colors">Ашық</option>
+          <option value="yellow color palette">Сары</option>
+          <option value="red color palette">Қызыл</option>
+          <option value="blue color palette">Көк</option>
+          <option value="green color palette">Жасыл</option>
+          <option value="brown color palette">Қоңыр</option>
+          <option value="black color palette">Қара</option>
+          <option value="white color palette">Ақ</option>
+          <option value="black and white monochrome">Ақ қара</option>
+          <option value="clean pure colors">Таза</option>
+          <option value="dark moody tones">Күңгірт</option>
+          <option value="monochrome color scheme">Монохром</option>
+          <option value="glossy vibrant colors">Жылтыр</option>
+          <option value="translucent clear colors">Мөлдір</option>
+          <option value="metallic metallic colors">Металл</option>
+          <option value="pink tones">Қызғылт</option>
+          <option value="light yellow color">Ашық сары</option>
+          <option value="light blue color">Ашық көк</option>
+          <option value="light red color">Ашық қызыл</option>
+          <option value="rose pink color">Розовый</option>
+          <option value="brownish yellow ochre">Қоңыр сары</option>
+          <option value="full spectrum color mixture">Барлық түстер қосындысы</option>
+        </select>
+      </div>
+      <div><label>Көңіл-күй</label>
+        <select id="pMood" onchange="buildPrompt()">
+          <option value="mysterious">Жұмбақ</option>
+          <option value="melancholic">Мұңды</option>
+          <option value="joyful">Қуанышты</option>
+          <option value="dramatic">Драмалық</option>
+          <option value="romantic">Романтикалық</option>
+          <option value="nostalgic">Ностальгиялық</option>
+          <option value="epic">Эпикалық</option>
+          <option value="serene">Тыныш</option>
+          <option value="chaotic">Хаосты</option>
+          <option value="dreamy">Арманшыл</option>
+          <option value="tense">Кернеулі</option>
+          <option value="hopeful">Үмітті</option>
+          <option value="tragic">Трагедиялық</option>
+          <option value="playful">Ойнақы</option>
+          <option value="majestic">Салтанатты</option>
+          <option value="eerie">Түршігерлік</option>
+          <option value="whimsical">Қызық</option>
+          <option value="contemplative">Ойшыл</option>
+          <option value="triumphant">Жеңісті</option>
+          <option value="somber">Мұңлы</option>
+        </select>
+      </div>
+      <div><label>Жанр</label>
+        <select id="pGenre" onchange="buildPrompt()">
+          <option value="portrait">Портрет</option>
+          <option value="self-portrait">Автопортрет</option>
+          <option value="landscape">Пейзаж</option>
+          <option value="seascape">Теңіз көрінісі</option>
+          <option value="cityscape">Қала көрінісі</option>
+          <option value="still life">Натюрморт</option>
+          <option value="historical scene">Тарихи көрініс</option>
+          <option value="mythological scene">Мифологиялық көрініс</option>
+          <option value="religious scene">Діни көрініс</option>
+          <option value="battle scene">Шайқас көрінісі</option>
+          <option value="abstract composition">Абстрактілі композиция</option>
+          <option value="fantasy scene">Фантастикалық көрініс</option>
+          <option value="sci-fi scene">Ғылыми-фантастикалық көрініс</option>
+          <option value="street scene">Көше көрінісі</option>
+          <option value="interior">Интерьер</option>
+          <option value="animal portrait">Жануар портреті</option>
+          <option value="surreal scene">Сюрреал көрініс</option>
+          <option value="noir scene">Нуар көрінісі</option>
+          <option value="cyberpunk scene">Киберпанк көрінісі</option>
+          <option value="steampunk scene">Стимпанк көрінісі</option>
+          <option value="post-apocalyptic scene">Постапокалипсис көрінісі</option>
+          <option value="dreamscape">Түс көрінісі</option>
+        </select>
+      </div>
+      <div><label>Көру бұрышы</label>
+        <select id="pView" onchange="buildPrompt()">
+          <option value="close-up">Жақын план</option>
+          <option value="extreme close-up">Өте жақын план</option>
+          <option value="medium shot">Орта план</option>
+          <option value="wide shot">Кең план</option>
+          <option value="aerial view">Үстінен көрініс</option>
+          <option value="bird's-eye view">Құс көзі</option>
+          <option value="low angle">Төменнен бұрыш</option>
+          <option value="high angle">Жоғарыдан бұрыш</option>
+          <option value="eye level">Көз деңгейі</option>
+          <option value="dutch angle">Голланд бұрышы</option>
+          <option value="over-the-shoulder">Иық үстінен</option>
+        </select>
+      </div>
+    </div>
+    <div class="prompt-output" id="promptOut">Промпт осында пайда болады...</div>
+    <button class="btn btn-secondary" onclick="copyPrompt()">📋 Промптты көшіру</button>
+    <a href="https://chatgpt.com" target="_blank" class="btn btn-primary" id="chatgptBtn" onclick="openChatGPT(event)" style="display:inline-flex;align-items:center;gap:8px;text-decoration:none;">
+      🤖 ChatGPT-ге өту (chatgpt.com) ↗
+    </a>
+
+    <div style="margin-top:20px;text-align:left;background:#131a28;border:1px stroke #2a3a52;border-radius:12px;padding:20px;">
+      <p class="hint" style="margin-bottom:8px;"><strong style="color:#f5a623">💡 Нұсқаулық:</strong> «Промптты көшіру» батырмасын басып, ChatGPT сайтына өтіңіз де, алынған промптты қойып сурет жасатыңыз. Алынған суретті төмендегі өріске жүктеңіз немесе сілтемесін қойыңыз.</p>
+      
+      <label class="upload-box" for="aiFileInput" style="margin-top:12px;padding:20px;">
+        <div style="font-size:1.8rem">🖼️</div>
+        <div style="color:#cde;margin-top:6px;font-size:.85rem">ChatGPT жасаған суретті осында жүктеңіз</div>
+        <input type="file" id="aiFileInput" accept="image/*">
+      </label>
+      <img class="preview" id="aiPreview" alt="ChatGPT суреті" style="max-width:100%;max-height:300px;border-radius:10px;margin-top:12px;display:none;">
+    </div>
+
+    <button class="btn btn-primary" onclick="goTo(5)">Рефлексияға →</button>
+  </section>
+
+  <!-- КЕЗЕҢ 5 -->
+  <section class="panel hidden" id="stage-5">
+    <h2>5-кезең. Өз бетінше рефлексия (Макс: 25 балл)</h2>
+    <p class="hint" style="color:#f5a623">⚠️ Ескерту: Сұрақтарға ЖИ (AI) көмегінсіз, өз бетіңізше толық әрі сауатты жауап беріңіз.</p>
+    <div class="reflection-q"><label>1. Қай код ең маңызды болды? Неге?</label><textarea id="r1"></textarea></div>
+    <div class="reflection-q"><label>2. Код суреті сіздің түсінігіңізге сәйкес пе?</label><textarea id="r2"></textarea></div>
+    <div class="reflection-q"><label>3. Орындау барысында қандай қиындықтар болды?</label><textarea id="r3"></textarea></div>
+    <div class="reflection-q"><label>4. Келесіде нені өзгертер едіңіз?</label><textarea id="r4"></textarea></div>
+    <button class="btn btn-primary" onclick="finish()">Ойынды аяқтау 🏁</button>
+  </section>
+
+  <!-- НӘТИЖЕ -->
+  <section class="panel hidden" id="stage-result">
+    <div class="result">
+      <div style="font-size:3rem">🏆</div>
+      <h2 style="color:#f5a623;margin:16px 0">Қорытынды Бағалау</h2>
+      <div class="score" id="finalScore">0</div>
+      <div style="color:#9aa">/ 100 балл</div>
+
+      <div class="level-title" id="finalLevelTitle">Өте жоғары деңгей</div>
+      <div class="msg" id="finalMsg"></div>
+
+      <!-- Критерийлер бойынша баллдар -->
+      <div class="score-breakdown">
+        <h4>📊 Критерийлер бойынша нәтиже:</h4>
+        <div class="breakdown-item">
+          <span>1. Цифрлық кодтарды таңдау және сурет концепті (Макс: 25 балл)</span>
+          <span class="pts" id="pts1">0 балл</span>
+        </div>
+        <div class="breakdown-item">
+          <span>2. Суреттің кодтар мен нысандарға сәйкестігі (Макс: 30 балл)</span>
+          <span class="pts" id="pts2">0 балл</span>
+        </div>
+        <div class="breakdown-item">
+          <span>3. ЖИ трансформациясы және нәтиже (Макс: 20 балл)</span>
+          <span class="pts" id="pts3">0 балл</span>
+        </div>
+        <div class="breakdown-item">
+          <span>4. Өз бетінше сапалы рефлексия жасау (Макс: 25 балл)</span>
+          <span class="pts" id="pts4">0 балл</span>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" onclick="location.reload()">Қайта ойнау 🔄</button>
+    </div>
+  </section>
+
+</div>
+
+<!-- МОДАЛЬДЫ ТЕРЕЗЕ -->
+<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">×</button>
+    <div class="modal-header">
+      <span class="code-badge" id="mCode">A01</span>
+      <h3 id="mName">Нүкте</h3>
+      <p id="mDesc">Композицияның бастапқы элементі</p>
+    </div>
+    <div class="modal-body">
+      <div class="modal-visual" id="mVisual"></div>
+      <div class="modal-section">
+        <h4>🔍 Түсініктеме</h4>
+        <p id="mExplain"></p>
+      </div>
+      <div class="modal-section">
+        <h4>🎨 Өнер тарихынан мысал</h4>
+        <div class="example" id="mExample"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-primary" id="mSelectBtn">✓ Осы кодты таңдау</button>
+        <button class="btn btn-secondary" onclick="closeModal()">Жабу</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+// КОД ДЕРЕКТЕРІ
+// ============================================================
+const CODES = [
+  { code:'A01', name:'Нүкте', short:'Композицияның бастапқы элементі', explain:'Нүкте — кез келген композицияның ең кіші бірлігі.', example:'', svg:`<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="120" fill="#131a28"/><circle cx="100" cy="60" r="18" fill="#f5a623"/><circle cx="100" cy="60" r="30" fill="none" stroke="#e94560" stroke-width="1" stroke-dasharray="3,3" opacity="0.5"/></svg>` },
+  { code:'A02', name:'Сызық', short:'Бағыт, қозғалыс', explain:'Сызық — қозғалыс пен бағытты білдіреді.', example:'', svg:`<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="120" fill="#131a28"/><line x1="20" y1="60" x2="180" y2="60" stroke="#e94560" stroke-width="4"/><line x1="100" y1="20" x2="100" y2="100" stroke="#f5a623" stroke-width="4"/><path d="M20 90 Q100 20 180 90" stroke="#2ecc71" stroke-width="3" fill="none"/></svg>` },
+  { code:'A03', name:'Пішін', short:'Геометриялық немесе органикалық форма', explain:'Пішін — сызықтармен қоршалған аймақ.', example:'', svg:`<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="120" fill="#131a28"/><rect x="20" y="20" width="50" height="50" fill="#e94560" rx="4"/><circle cx="130" cy="45" r="25" fill="#f5a623"/><path d="M40 100 Q70 70 100 100 T160 100" stroke="#2ecc71" stroke-width="3" fill="none"/></svg>` },
+  { code:'A04', name:'Көлем', short:'Үшөлшемділік', explain:'Көлем — нысанның үшөлшемділігін білдіреді.', example:'', svg:`<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="120" fill="#131a28"/><defs><radialGradient id="sph" cx="35%" cy="35%"><stop offset="0%" stop-color="#f5a623"/><stop offset="100%" stop-color="#8a4a10"/></radialGradient></defs><circle cx="100" cy="60" r="40" fill="url(#sph)"/></svg>` },
+  { code:'A05', name:'Кеңістік', short:'Тереңдік, арақашықтық', explain:'Кеңістік — суреттегі тереңдік сезімі.', example:'', svg:`<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="120" fill="#131a28"/><rect x="20" y="20" width="40" height="80" fill="#e94560" opacity="0.3"/><rect x="70" y="30" width="30" height="70" fill="#e94560" opacity="0.5"/><rect x="110" y="40" width="20" height="60" fill="#e94560" opacity="0.7"/><rect x="140" y="45" width="15" height="55" fill="#e94560" opacity="0.9"/></svg>` },
+  { code:'A06', name:'Перспектива', short:'Сызықтық және әуе перспективасы', explain:'Перспектива — үшөлшемді кеңістікті жазықтықта беру тәсілі.', example:'', svg:`<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="120" fill="#131a28"/><line x1="100" y1="60" x2="20" y2="20" stroke="#f5a623" stroke-width="2"/><line x1="100" y1="60" x2="20" y2="100" stroke="#f5a623" stroke-width="2"/><line x1="100" y1="60" x2="180" y2="20" stroke="#f5a623" stroke-width="2"/><line x1="100" y1="60" x2="180" y2="100" stroke="#f5a623" stroke-width="2"/><line x1="100" y1="60" x2="100" y2="20" stroke="#e94560" stroke-width="2"/><line x1="100" y1="60" x2="100" y2="100" stroke="#e94560" stroke-width="2"/><circle cx="100" cy="60" r="3" fill="#2ecc71"/></svg>` },
+  { code:'A07', name:'Композиция', short:'Элементтердің орналасуы', explain:'Композиция — элементтердің кеңістікте орналасуы.', example:'', svg:`<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="120" fill="#131a28"/><polygon points="100,20 40,100 160,100" fill="none" stroke="#f5a623" stroke-width="2"/><circle cx="100" cy="45" r="10" fill="#e94560"/><circle cx="60" cy="90" r="8" fill="#e94560"/><circle cx="140" cy="90" r="8" fill="#e94560"/></svg>` },
+  { code:'A08', name:'Тепе-теңдік', short:'Симметрия, асимметрия', explain:'Тепе-теңдік — композицияның визуалды тұрақтылығы.', example:'', svg:`<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="120" fill="#131a28"/><line x1="100" y1="10" x2="100" y2="110" stroke="#f5a623" stroke-width="1" stroke-dasharray="3,3"/><circle cx="60" cy="60" r="20" fill="#e94560" opacity="0.8"/><circle cx="140" cy="60" r="20" fill="#2ecc71" opacity="0.8"/></svg>` },
+  { code:'A09', name:'Ырғақ', short:'Қайталану және қозғалыс', explain:'Ырғақ — элементтердің қайталануы.', example:'', svg:`<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="120" fill="#131a28"/><circle cx="40" cy="60" r="8" fill="#f5a623"/><circle cx="80" cy="60" r="10" fill="#f5a623"/><circle cx="120" cy="60" r="12" fill="#f5a623"/><circle cx="160" cy="60" r="14" fill="#f5a623"/></svg>` },
+  { code:'A10', name:'Пропорция', short:'Өлшемдік сәйкестік', explain:'Пропорция — бөліктердің бір-біріне қатынасы.', example:'', svg:`<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="120" fill="#131a28"/><rect x="60" y="30" width="30" height="60" fill="#e94560" opacity="0.6"/><rect x="100" y="30" width="40" height="60" fill="#f5a623" opacity="0.6"/><text x="100" y="110" fill="#9aa" font-size="10" text-anchor="middle">1 : 1.618</text></svg>` },
+  { code:'A11', name:'Масштаб', short:'Нысандардың арақатынасы', explain:'Масштаб — нысандардың бір-біріне қатысты өлшемі.', example:'', svg:`<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="120" fill="#131a28"/><circle cx="60" cy="60" r="35" fill="#f5a623"/><circle cx="150" cy="60" r="10" fill="#e94560"/></svg>` },
+  { code:'A12', name:'Доминанта', short:'Негізгі визуалды орталық', explain:'Доминанта — композицияның басты элементі.', example:'', svg:`<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="120" fill="#131a28"/><circle cx="100" cy="60" r="30" fill="#e94560"/><circle cx="40" cy="40" r="8" fill="#444"/><circle cx="160" cy="40" r="8" fill="#444"/><circle cx="40" cy="90" r="8" fill="#444"/><circle cx="160" cy="90" r="8" fill="#444"/></svg>` },
+  { code:'A13', name:'Контраст', short:'Қарама-қарсылық', explain:'Контраст — қарама-қарсы элементтердің қатар тұруы.', example:'', svg:`<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="120" fill="#131a28"/><rect x="20" y="20" width="70" height="80" fill="#fff"/><rect x="110" y="20" width="70" height="80" fill="#000"/><circle cx="55" cy="60" r="15" fill="#e94560"/><circle cx="145" cy="60" r="15" fill="#f5a623"/></svg>` },
+  { code:'A14', name:'Акцент', short:'Назар аударту нүктесі', explain:'Акцент — кішкентай, бірақ назарды тартатын элемент.', example:'', svg:`<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="120" fill="#131a28"/><rect x="20" y="20" width="160" height="80" fill="#1e2638"/><circle cx="100" cy="60" r="8" fill="#f5a623"/><circle cx="100" cy="60" r="16" fill="none" stroke="#f5a623" stroke-width="1" stroke-dasharray="2,2"/></svg>` },
+  { code:'A15', name:'Түс', short:'Жалпы түстік жүйе', explain:'Түс — эмоция мен атмосфераның негізгі құралы.', example:'', svg:`<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="120" fill="#131a28"/><rect x="20" y="20" width="40" height="80" fill="#e94560"/><rect x="65" y="20" width="40" height="80" fill="#f5a623"/><rect x="110" y="20" width="40" height="80" fill="#2ecc71"/><rect x="155" y="20" width="25" height="80" fill="#3498db"/></svg>` },
+  { code:'A16', name:'Түс реңкі', short:'Түстің жиынтығы', explain:'Түс реңкі — бір түстің әртүрлі реңктері.', example:'', svg:`<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="120" fill="#131a28"/><rect x="20" y="20" width="40" height="80" fill="#2d1b3d"/><rect x="65" y="20" width="40" height="80" fill="#6a2c70"/><rect x="110" y="20" width="40" height="80" fill="#b83b5e"/><rect x="155" y="20" width="25" height="80" fill="#f5a623"/></svg>` },
+  { code:'A17', name:'Калиграфия', short:'Әдемі көркем жазу өнері', explain:'Каллиграфия — жазуды көркем, әсем және мәнерлі етіп түсіру өнері.', example:'', svg:`<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="120" fill="#131a28"/><path d="M 30 70 Q 70 10 110 70 T 170 50" stroke="#f5a623" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M 50 90 C 80 40, 120 100, 150 30" stroke="#e94560" stroke-width="2" fill="none"/></svg>` },
+  { code:'A18', name:'Жарықтық', short:'Заттың жарық түскен жері', explain:'Жарықтық — түстің ашықтық дәрежесі.', example:'', svg:`<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="120" fill="#131a28"/><defs><linearGradient id="lg" x1="0" x2="1"><stop offset="0%" stop-color="#f5a623"/><stop offset="100%" stop-color="#1e2638"/></linearGradient></defs><circle cx="100" cy="60" r="40" fill="url(#lg)"/></svg>` },
+  { code:'A19', name:'Жарық-көлеңке', short:'Заттың көлеңке түскен жері', explain:'Жарық-көлеңке — көлем мен форманы беретін негізгі құрал.', example:'', svg:`<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="120" fill="#131a28"/><defs><radialGradient id="sf" cx="35%" cy="35%"><stop offset="0%" stop-color="#f5a623"/><stop offset="70%" stop-color="#6a4a20"/><stop offset="100%" stop-color="#0a0a12"/></radialGradient></defs><circle cx="100" cy="60" r="45" fill="url(#sf)"/></svg>` },
+  { code:'A20', name:'Текстура', short:'Беткі құрылым', explain:'Текстура — беттің көрнекі құрылымы.', example:'', svg:`<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="120" fill="#131a28"/><g stroke="#f5a623" stroke-width="1" opacity="0.6"><line x1="20" y1="20" x2="60" y2="40"/><line x1="40" y1="30" x2="80" y2="50"/><line x1="60" y1="20" x2="100" y2="60"/><line x1="80" y1="30" x2="120" y2="70"/><line x1="100" y1="20" x2="140" y2="60"/><line x1="120" y1="30" x2="160" y2="70"/><line x1="40" y1="80" x2="80" y2="100"/><line x1="80" y1="80" x2="120" y2="100"/><line x1="120" y1="80" x2="160" y2="100"/><line x1="60" y1="60" x2="100" y2="80"/></g></svg>` },
+  { code:'A21', name:'Материал', short:'Бояу, қағаз, цифрлық материал', explain:'Материал — шығарманың физикалық негізі.', example:'', svg:`<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="120" fill="#131a28"/><rect x="30" y="30" width="60" height="60" fill="#f5a623" rx="4" opacity="0.7"/><rect x="100" y="30" width="30" height="60" fill="#e94560" rx="2" opacity="0.7"/><rect x="140" y="40" width="40" height="40" fill="#2ecc71" rx="8" opacity="0.7"/></svg>` },
+  { code:'A22', name:'Символ', short:'Белгілік мазмұн', explain:'Символ — белгілі бір мағына беретін визуалды белгі.', example:'', svg:`<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="120" fill="#131a28"/><text x="100" y="80" font-size="50" text-anchor="middle" fill="#f5a623">☯</text></svg>` },
+  { code:'A23', name:'Стиль', short:'Көркемдік стиль', explain:'Стиль — белгілі бір дәуірге тән көркемдік ерекшеліктер жиынтығы.', example:'', svg:`<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="120" fill="#131a28"/><polygon points="60,30 100,20 120,60 80,80" fill="#e94560" opacity="0.7"/><polygon points="100,20 140,40 160,80 120,60" fill="#f5a623" opacity="0.7"/><polygon points="80,80 120,60 140,100 60,100" fill="#2ecc71" opacity="0.7"/></svg>` },
+  { code:'A24', name:'Жанр', short:'Портрет, пейзаж және т.б.', explain:'Жанр — шығарманың тақырыптық түрі.', example:'', svg:`<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="120" fill="#131a28"/><circle cx="50" cy="50" r="20" fill="#f5a623"/><path d="M20 100 L50 70 L80 100 Z" fill="#2ecc71"/><path d="M80 100 L110 60 L140 100 Z" fill="#27ae60"/><rect x="120" y="80" width="60" height="20" fill="#8a4a10"/></svg>` },
+  { code:'A25', name:'Қаріп', short:'Типография', explain:'Қаріп — мәтіннің визуалды формасы.', example:'', svg:`<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="120" fill="#131a28"/><text x="100" y="50" font-size="24" font-family="serif" text-anchor="middle" fill="#f5a623">A a B b</text><text x="100" y="80" font-size="16" font-family="monospace" text-anchor="middle" fill="#e94560">0123</text></svg>` },
+  { code:'A26', name:'Тұтастық-аяқталған сурет', short:'Композицияның біртұтастығы', explain:'Тұтастық — барлық элементтердің біртұтас жүйе құрап, аяқталған туынды беруі.', example:'', svg:`<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="120" fill="#131a28"/><circle cx="100" cy="60" r="40" fill="none" stroke="#f5a623" stroke-width="3"/><rect x="75" y="35" width="50" height="50" fill="none" stroke="#e94560" stroke-width="2"/><circle cx="100" cy="60" r="12" fill="#2ecc71"/></svg>` },
+  { code:'A27', name:'Анимация', short:'Қозғалыс эффектілері', explain:'Анимация — суреттегі қозғалыс.', example:'', svg:`<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="120" fill="#131a28"/><circle cx="40" cy="60" r="10" fill="#f5a623" opacity="0.3"/><circle cx="80" cy="60" r="10" fill="#f5a623" opacity="0.5"/><circle cx="120" cy="60" r="10" fill="#f5a623" opacity="0.7"/><circle cx="160" cy="60" r="10" fill="#f5a623"/></svg>` },
+  { code:'A28', name:'Симметрия', short:'Айналық тепе-теңдік', explain:'Симметрия — композиция элементтерінің орталық оське қатысты бірдей орналасуы.', example:'', svg:`<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="120" fill="#131a28"/><line x1="100" y1="10" x2="100" y2="110" stroke="#f5a623" stroke-width="2" stroke-dasharray="4,4"/><path d="M 40 30 Q 80 60 40 90" fill="none" stroke="#e94560" stroke-width="3"/><path d="M 160 30 Q 120 60 160 90" fill="none" stroke="#e94560" stroke-width="3"/></svg>` },
+  { code:'A29', name:'Ассиметрия', short:'Динамикалық тепе-теңдік', explain:'Ассиметрия — элементтердің тең емес орналасуы арқылы қозғалыс тудыру.', example:'', svg:`<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="120" fill="#131a28"/><circle cx="50" cy="50" r="30" fill="#e94560"/><circle cx="150" cy="75" r="15" fill="#f5a623"/><rect x="120" y="30" width="15" height="15" fill="#2ecc71"/></svg>` },
+  { code:'A30', name:'Көп тұлғалы композиция', short:'Бірнеше кейіпкерлер тобы', explain:'Көп тұлғалы композиция — бірнеше адамның, кейіпкердің күрделі сюжеттік қарым-қатынасы.', example:'', svg:`<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="120" fill="#131a28"/><circle cx="60" cy="50" r="14" fill="#f5a623"/><path d="M 40 90 C 40 70, 80 70, 80 90" fill="#f5a623"/><circle cx="100" cy="40" r="16" fill="#e94560"/><path d="M 75 90 C 75 65, 125 65, 125 90" fill="#e94560"/><circle cx="140" cy="50" r="14" fill="#2ecc71"/><path d="M 120 90 C 120 70, 160 70, 160 90" fill="#2ecc71"/></svg>` }
+];
+
+// ============================================================
+// КҮЙ
+// ============================================================
+const state = { selected: new Set(), step: 1, hasImage: false, hasAiImage: false };
+
+// ============================================================
+// НАВИГАЦИЯ
+// ============================================================
+function goTo(step) {
+  state.step = step;
+  document.querySelectorAll('[id^="stage-"]').forEach(el => el.classList.add('hidden'));
+  const target = document.getElementById('stage-' + step);
+  if (target) target.classList.remove('hidden');
+  document.querySelectorAll('.step').forEach(s => {
+    const n = parseInt(s.dataset.step);
+    s.classList.toggle('active', n === step);
+    s.classList.toggle('done', n < step);
+  });
+  window.scrollTo({top:0, behavior:'smooth'});
+  if (step === 2) renderCodes();
+  if (step === 4) buildPrompt();
+}
+
+// ============================================================
+// КОДТАРДЫ РЕНДЕРЛЕУ
+// ============================================================
+function renderCodes() {
+  const grid = document.getElementById('codeGrid');
+  grid.innerHTML = '';
+  CODES.forEach(c => {
+    const card = document.createElement('div');
+    card.className = 'code-card' + (state.selected.has(c.code) ? ' selected' : '');
+    card.innerHTML = `
+      <div class="view-icon">👁</div>
+      <div class="thumb">${c.svg}</div>
+      <div class="code">${c.code}</div>
+      <div class="name">${c.name}</div>
+      <div class="desc">${c.short}</div>
+    `;
+    card.onclick = () => openModal(c);
+    grid.appendChild(card);
+  });
+  updateSelected();
+}
+
+// ============================================================
+// МОДАЛЬДЫ ТЕРЕЗЕ
+// ============================================================
+let currentCode = null;
+
+function openModal(code) {
+  currentCode = code;
+  document.getElementById('mCode').textContent = code.code;
+  document.getElementById('mName').textContent = code.name;
+  document.getElementById('mDesc').textContent = code.short;
+  document.getElementById('mVisual').innerHTML = code.svg;
+  document.getElementById('mExplain').textContent = code.explain;
+  document.getElementById('mExample').textContent = code.example;
+
+  const btn = document.getElementById('mSelectBtn');
+  if (state.selected.has(code.code)) {
+    btn.textContent = '✕ Таңдауды алу';
+    btn.className = 'btn btn-secondary';
+  } else {
+    btn.textContent = '✓ Осы кодты таңдау';
+    btn.className = 'btn btn-primary';
+  }
+  btn.onclick = () => {
+    toggleCode(code.code);
+    if (state.selected.has(code.code)) {
+      btn.textContent = '✕ Таңдауды алу';
+      btn.className = 'btn btn-secondary';
+      showToast(`✅ ${code.code} таңдалды`);
+    } else {
+      btn.textContent = '✓ Осы кодты таңдау';
+      btn.className = 'btn btn-primary';
+      showToast(`✕ ${code.code} алынды`);
+    }
+    renderCodes();
+  };
+
+  document.getElementById('modalOverlay').classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('show');
+  document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+});
+
+// ============================================================
+// КОД ТАҢДАУ
+// ============================================================
+function toggleCode(code) {
+  if (state.selected.has(code)) state.selected.delete(code);
+  else state.selected.add(code);
+  updateSelected();
+  renderCodes();
+}
+
+function updateSelected() {
+  const list = document.getElementById('selectedList');
+  list.innerHTML = '';
+  state.selected.forEach(code => {
+    const chip = document.createElement('div');
+    chip.className = 'chip';
+    chip.innerHTML = `${code} <button onclick="removeCode('${code}')">×</button>`;
+    list.appendChild(chip);
+  });
+  const n = state.selected.size;
+  const counter = document.getElementById('counter');
+  counter.textContent = `Таңдалды: ${n} / 10`;
+  counter.classList.toggle('ok', n >= 10);
+  document.getElementById('next2').disabled = n < 10;
+}
+
+function removeCode(code) {
+  state.selected.delete(code);
+  updateSelected();
+  renderCodes();
+}
+
+function clearCodes() {
+  state.selected.clear();
+  updateSelected();
+  renderCodes();
+}
+
+
+
+// ============================================================
+// ПРОМПТ
+// ============================================================
+function buildPrompt() {
+  const obj = document.getElementById('pObj').value.trim() || 'a mysterious figure';
+  const style = document.getElementById('pStyle').value;
+  const fx = document.getElementById('pFx').value;
+  const mood = document.getElementById('pMood').value;
+  const genre = document.getElementById('pGenre').value;
+  const view = document.getElementById('pView').value;
+  const codes = Array.from(state.selected).join(', ');
+
+  let prompt = `${obj}, ${genre}, ${style}, ${mood} mood, ${view}`;
+  if (fx !== 'none') prompt += `, color palette: ${fx}`;
+  if (codes) prompt += `, visual codes: ${codes}`;
+  prompt += ', highly detailed, masterpiece, best quality';
+
+  document.getElementById('promptOut').textContent = prompt;
+}
+
+function copyPrompt() {
+  const text = document.getElementById('promptOut').textContent;
+  navigator.clipboard.writeText(text).then(() => showToast('📋 Промпт көшірілді!'));
+}
+
+// ============================================================
+// CHATGPT СІЛТЕМЕСІ ЖӘНЕ AI СУРЕТІН ЖҮКТЕУ
+// ============================================================
+function openChatGPT(e) {
+  const promptText = document.getElementById('promptOut').textContent;
+  if (!promptText || promptText.includes('Промпт осында')) {
+    e.preventDefault();
+    showToast('⚠️ Алдымен промпт құрастырыңыз!');
+    return;
+  }
+  navigator.clipboard.writeText(promptText).then(() => {
+    showToast('📋 Промпт көшірілді! ChatGPT ашылуда...');
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  // 3-кезең сурет жүктеу
+  document.getElementById('fileInput').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = document.getElementById('preview');
+      img.src = ev.target.result;
+      img.style.display = 'block';
+      state.hasImage = true;
+      document.getElementById('next3').disabled = false;
+      showToast('✅ Сурет жүктелді!');
+    };
+    reader.readAsDataURL(file);
+  });
+
+  // 4-кезең AI суретін жүктеу
+  const aiInput = document.getElementById('aiFileInput');
+  if (aiInput) {
+    aiInput.addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        const img = document.getElementById('aiPreview');
+        img.src = ev.target.result;
+        img.style.display = 'block';
+        state.hasAiImage = true;
+        showToast('✅ ChatGPT суреті жүктелді!');
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+});
+
+// ============================================================
+// АЯҚТАУ ЖӘНЕ КРИТЕРИЙЛЕР БОЙЫНША БАҒАЛАУ (100 БАЛЛ)
+// ============================================================
+function finish() {
+  // 1. Цифрлық кодтарды таңдау және сурет концепті — 25% (25 балл)
+  const c1 = Math.min(state.selected.size, 10) * 2.5;
+
+  // 2. Жасалған/салынған суреттің кодтар мен нысандарға сәйкестігі — 30% (30 балл)
+  const c2 = state.hasImage ? 30 : 0;
+
+  // 3. Өз суретін ЖИ көмегімен трансформациялау — 20% (20 балл)
+  const c3 = state.hasAiImage ? 20 : 0;
+
+  // 4. Өз бетінше рефлексия жасау (ЖИ көмегінсіз) — 25% (25 балл)
+  const reflFilled = ['r1','r2','r3','r4'].filter(id => document.getElementById(id).value.trim().length > 10).length;
+  const c4 = reflFilled * 6.25;
+
+  const totalScore = Math.min(Math.round(c1 + c2 + c3 + c4), 100);
+
+  // Нәтижені жаңарту
+  document.getElementById('finalScore').textContent = totalScore;
+  document.getElementById('pts1').textContent = `${c1} / 25 балл`;
+  document.getElementById('pts2').textContent = `${c2} / 30 балл`;
+  document.getElementById('pts3').textContent = `${c3} / 20 балл`;
+  document.getElementById('pts4').textContent = `${c4} / 25 балл`;
+
+  let levelTitle = '';
+  let msg = '';
+
+  if (totalScore >= 96) {
+    levelTitle = 'Өте жоғары деңгей (96–100 балл)';
+    msg = 'Барлық тапсырманы толық әрі жоғары сапада орындайсыз. Цифрлық кодтарды дұрыс таңдайсыз, суретті талапқа сай жасайсыз, ЖИ көмегімен трансформация жасайсыз және рефлексияны өз бетінше сауатты жүргіздіңіз.';
+  } else if (totalScore >= 85) {
+    levelTitle = 'Жоғары деңгей (85–95 балл)';
+    msg = 'Тапсырмаларды жақсы орындайсыз. Негізгі талаптарды сақтадыңыз, бірақ кейбір кезеңдерде аздаған дәлсіздіктер болуы мүмкін.';
+  } else if (totalScore >= 75) {
+    levelTitle = 'Орта деңгей (75–84 балл)';
+    msg = 'Тапсырмалардың басым бөлігін орындайсыз, алайда кодтарды таңдау, суреттің сәйкестігі немесе трансформация нәтижесін түсіндіру кезінде кейбір қателіктер байқалды.';
+  } else if (totalScore >= 60) {
+    levelTitle = 'Төмен деңгей (60–74 балл)';
+    msg = 'Тапсырмаларды ішінара орындайсыз. Жұмыстың бірнеше кезеңінде қиындықтар байқалады, жауаптары толық емес.';
+  } else if (totalScore >= 50) {
+    levelTitle = 'Өте төмен деңгей (50–59 балл)';
+    msg = 'Тапсырмаларды орындау сапасы жеткіліксіз. Цифрлық кодтарды қолдану, сурет жасау және өз жұмысын талдау барысында елеулі қиындықтар бар.';
+  } else {
+    levelTitle = 'Меңгеру деңгейі жеткіліксіз (0–49 балл)';
+    msg = 'Тапсырмалардың негізгі талаптары орындалмаған немесе қажетті білім мен дағдыларды толық көрсете алмадыңыз.';
+  }
+
+  document.getElementById('finalLevelTitle').textContent = levelTitle;
+  document.getElementById('finalMsg').textContent = msg;
+
+  goTo('result');
+}
+
+// ============================================================
+// TOAST
+// ============================================================
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// Іске қосу
+renderCodes();
+</script>
+</body>
+</html>
